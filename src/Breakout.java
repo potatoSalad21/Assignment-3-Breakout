@@ -69,9 +69,22 @@ public class Breakout extends GraphicsProgram {
 
     private static RandomGenerator rgen = RandomGenerator.getInstance();
 
-/* Method: run() */
-/** Runs the Breakout program. */
+    public void init() {
+        addMouseListeners();
+    }
+
+    /* Method: run() */
+    /** Runs the Breakout program. */
 	public void run() {
+        initStructures();
+
+        vx = rgen.nextDouble(1.0, 3.0);
+        vy = rgen.nextDouble(1.0, 3.0);
+
+        if (rgen.nextBoolean(0.5)) {
+            vx = -vx;
+        }
+
         // game loop
         while (true) {
             moveBall();
@@ -80,19 +93,10 @@ public class Breakout extends GraphicsProgram {
         }
 	}
 
-    public void init() {
-        vx = rgen.nextDouble(1.0, 3.0);
-        vy = rgen.nextDouble(1.0, 3.0);
-
-        if (rgen.nextBoolean(0.5)) {
-            vx = -vx;
-        }
-
+    private void initStructures() {
         drawBricks();
         drawPaddle();
         drawBall();
-
-        addMouseListeners();
     }
 
     // draws several rows of bricks according to colors
@@ -143,7 +147,7 @@ public class Breakout extends GraphicsProgram {
     private void moveBall() {
         ball.move(vx, vy);
 
-        if (ball.getX() <= 0 || ball.getX() >= WIDTH) {
+        if (ball.getX() <= 0 || ball.getX() + 2 * BALL_RADIUS >= WIDTH) {
             vx *= -1;
         }
 
@@ -151,25 +155,56 @@ public class Breakout extends GraphicsProgram {
             vy *= -1;
         }
 
-        if (ball.getY() >= HEIGHT) {
+        if (ball.getY() + 2 * BALL_RADIUS >= HEIGHT) {
             handleLoss(); // | |i || |-
         }
     }
 
     // checks and handles the brick collision
     private void checkCollisions() {
-        GObject obj = getCollidedObject(ball.getX(), ball.getY());
-        if (obj == null) {
-            return;
-        }
+        double leftX = ball.getX();
+        double rightX = ball.getX() + 2 * BALL_RADIUS;
+        double topY = ball.getY();
+        double bottomY = ball.getY() + 2 * BALL_RADIUS;
 
-        remove(obj);
-        brickNum--;
-        vy *= -1;
+        GObject obj = getBallCollider(leftX, rightX, topY, bottomY);
+        if (obj == paddle) {
+            vy = -Math.abs(vy);
+        } else if (obj != null) {
+            remove(obj);
+            brickNum--;
+            vy *= -1;
+
+            if (brickNum < 1) {
+                handleGameWin();
+            }
+        }
     }
 
-    private GObject getCollidedObject(double x, double y) {
-        GObject obj = getElementAt(x, y);
+    // checking all corners of the ball to see what it collided with
+    private GObject getBallCollider(double leftX, double rightX, double topY, double bottomY) {
+        GObject obj = null;
+
+        // top left corner
+        obj = getElementAt(leftX, topY);
+        if (obj != null) {
+            return obj;
+        }
+        // top right corner
+        obj = getElementAt(rightX, topY);
+        if (obj != null) {
+            return obj;
+        }
+        // bottom left corner
+        obj = getElementAt(leftX, bottomY);
+        if (obj != null) {
+            return obj;
+        }
+        // bottom right corner
+        obj = getElementAt(rightX, bottomY);
+        if (obj != null) {
+            return obj;
+        }
 
         return obj;
     }
@@ -190,20 +225,28 @@ public class Breakout extends GraphicsProgram {
     private void handleGameLoss() {
         lives = NTURNS;
         remove(ball);
-        showDeathScreen();
+        showScreenMessage("YOU DIED", Color.RED);
         drawBall();
     }
 
-    private void showDeathScreen() {
-        GLabel text = new GLabel("YOU DIED");
-        text.setColor(Color.RED);
+    private void handleGameWin() {
+        lives = NTURNS;
+        remove(ball);
+        showScreenMessage("YOU WON! :>", Color.GREEN);
+        drawBall();
+    }
 
-        double x = (WIDTH - text.getWidth()) / 2;
-        double y = (WIDTH - text.getAscent()) / 2;
+    // general method for displaying messages in center
+    private void showScreenMessage(String text, Color color) {
+        GLabel label = new GLabel(text);
+        label.setColor(color);
 
-        add(text, x, y);
+        double x = (WIDTH - label.getWidth()) / 2;
+        double y = (WIDTH - label.getAscent()) / 2;
+
+        add(label, x, y);
         pause(5000);
-        remove(text);
+        remove(label);
     }
 
     // pick the brick color according to the row
