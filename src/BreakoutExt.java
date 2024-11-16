@@ -7,15 +7,19 @@
  * This file will eventually implement the game of Breakout.
  */
 
-import acm.graphics.*;
-import acm.program.*;
-import acm.util.*;
+import acm.graphics.GLabel;
+import acm.graphics.GObject;
+import acm.graphics.GOval;
+import acm.graphics.GRect;
+import acm.program.GraphicsProgram;
+import acm.util.RandomGenerator;
+import acm.util.MediaTools;
 
-import java.applet.*;
+import java.applet.AudioClip;
 import java.awt.*;
-import java.awt.event.*;
+import java.awt.event.MouseEvent;
 
-public class Breakout extends GraphicsProgram {
+public class BreakoutExt extends GraphicsProgram {
 
 /** Width and height of application window in pixels */
 	public static final int APPLICATION_WIDTH = 400;
@@ -36,7 +40,7 @@ public class Breakout extends GraphicsProgram {
 	private static final int NBRICKS_PER_ROW = 10;
 
 /** Number of rows of bricks */
-	private static final int NBRICK_ROWS = 10;
+	private static final int NBRICK_ROWS = 1;
 
 /** Separation between bricks */
 	private static final int BRICK_SEP = 4;
@@ -58,9 +62,16 @@ public class Breakout extends GraphicsProgram {
 	private static final int NTURNS = 3;
 
     private static final int DELAY = 5;
+
+    private static final int BUTTON_WIDTH = 150;
+    private static final int BUTTON_HEIGHT = 50;
+
+    private Boolean gameRunning = false;
     private int lives = NTURNS;
     private int brickNum = NBRICK_ROWS * NBRICKS_PER_ROW;
 
+    private GRect startButton;
+    private GLabel startButtonLabel;
     private GRect paddle;
     private GOval ball;
 
@@ -76,10 +87,20 @@ public class Breakout extends GraphicsProgram {
     /* Method: run() */
     /** Runs the Breakout program. */
 	public void run() {
+        handleGameMenu();
+
+        // wait for the user to start the game
+        while (!gameRunning) {
+            pause(500);
+        }
+
         initGame();
         setSpeed();
+        startGameLoop();
+	}
 
-        // game loop
+    // game loop
+    private void startGameLoop() {
         while (lives > 0 && brickNum > 0) {
             moveBall();
             checkCollisions();
@@ -93,7 +114,23 @@ public class Breakout extends GraphicsProgram {
         }
 
         remove(ball);
-	}
+    }
+
+    private void handleGameMenu() {
+        double buttonX = (WIDTH - BUTTON_WIDTH) / 2.0;
+        double buttonY = (HEIGHT - BUTTON_HEIGHT) / 2.0;
+
+        startButton = new GRect(buttonX, buttonY, BUTTON_WIDTH, BUTTON_HEIGHT);
+        startButton.setFilled(true);
+        startButton.setColor(Color.GREEN);
+
+        startButtonLabel = new GLabel("Play");
+        double textX = buttonX + BUTTON_WIDTH / 2.0 - startButtonLabel.getWidth() / 2.0;
+        double textY = buttonY + BUTTON_HEIGHT / 2.0 - startButtonLabel.getAscent() / 2.0;
+
+        add(startButton);
+        add(startButtonLabel, textX, textY);
+    }
 
     private void initGame() {
         drawBricks();
@@ -140,8 +177,22 @@ public class Breakout extends GraphicsProgram {
         add(paddle);
     }
 
+    /*
+     *  ~~EVENT LISTENERS~~
+     */
+    // detect if the user clicked the start button
+    public void mouseClicked(MouseEvent e) {
+        if (startButton.contains(e.getX(), e.getY())) {
+            gameRunning = true;
+            remove(startButton);
+            remove(startButtonLabel);
+        }
+    }
+
     // moves the paddle according to mouse X location
     public void mouseMoved(MouseEvent e) {
+        if (paddle == null) return;
+
         double paddleX = e.getX() - PADDLE_WIDTH / 2.0;
 
         if (paddleX >= 0 && paddleX + PADDLE_WIDTH <= WIDTH) {
@@ -180,12 +231,21 @@ public class Breakout extends GraphicsProgram {
 
         GObject obj = getBallCollider(leftX, rightX, topY, bottomY);
         if (obj == paddle) {
-            vy = -Math.abs(vy);
-        } else if (obj != null) {
+            handlePaddleCollision();
+        } else if (obj != null) {   // ball collided with a brick
+            //
+            // TODO add score
+            // TODO add random buffs and debuffs
+
             remove(obj);
             brickNum--;
             vy *= -1;
         }
+    }
+
+    private void handlePaddleCollision() {
+        // TODO finish algo
+        vy = -Math.abs(vy);
     }
 
     // checking all corners of the ball to see what it collided with
@@ -233,7 +293,6 @@ public class Breakout extends GraphicsProgram {
 
         add(label, x, y);
         pause(5000);
-        remove(label);
     }
 
     // pick the brick color according to the row
