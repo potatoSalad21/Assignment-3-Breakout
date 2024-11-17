@@ -11,6 +11,7 @@ import acm.graphics.GLabel;
 import acm.graphics.GObject;
 import acm.graphics.GOval;
 import acm.graphics.GRect;
+import acm.graphics.GImage;
 import acm.program.GraphicsProgram;
 import acm.util.RandomGenerator;
 import acm.util.MediaTools;
@@ -32,6 +33,7 @@ public class BreakoutExt extends GraphicsProgram {
 /** Dimensions of the paddle */
 	private static final int PADDLE_WIDTH = 60;
 	private static final int PADDLE_HEIGHT = 10;
+
 
 /** Offset of the paddle up from the bottom */
 	private static final int PADDLE_Y_OFFSET = 30;
@@ -61,17 +63,30 @@ public class BreakoutExt extends GraphicsProgram {
 /** Number of turns */
 	private static final int NTURNS = 3;
 
+    private static final String ASSET_PATH = "/home/dato/assignments/assignment3/Assignment3/assets/";
+
     private static final int DELAY = 5;
+
+    private static final int HEART_WIDTH = 30;
+    private static final int HEART_HEIGHT = 30;
+	private static final int STATS_Y_OFFSET = 10;
 
     private static final int BUTTON_WIDTH = 150;
     private static final int BUTTON_HEIGHT = 50;
 
-    private Boolean gameRunning = false;
-    private int lives = NTURNS;
-    private int brickNum = NBRICK_ROWS * NBRICKS_PER_ROW;
+    // load audio assets
+    private AudioClip bounceSfx = MediaTools.loadAudioClip(ASSET_PATH + "bounce.au");
+    private AudioClip winSfx = MediaTools.loadAudioClip(ASSET_PATH + "win.wav");
+    private AudioClip lossSfx = MediaTools.loadAudioClip(ASSET_PATH + "game-over.wav");
+    private AudioClip missSfx = MediaTools.loadAudioClip(ASSET_PATH + "miss.wav");
 
     private GRect startButton;
     private GLabel startButtonLabel;
+    private Boolean gameRunning = false;
+    private GLabel scoreLabel;
+    private int lives = NTURNS;
+    private int score = 0;
+    private int brickNum = NBRICK_ROWS * NBRICKS_PER_ROW;
     private GRect paddle;
     private GOval ball;
 
@@ -108,11 +123,14 @@ public class BreakoutExt extends GraphicsProgram {
         }
 
         if (brickNum < 1) {
+            winSfx.play();
             showScreenMessage("You Win! :>", Color.GREEN);
         } else {
+            lossSfx.play();
             showScreenMessage("YOU DIED.", Color.RED);
         }
 
+        gameRunning = false;
         remove(ball);
     }
 
@@ -125,6 +143,7 @@ public class BreakoutExt extends GraphicsProgram {
         startButton.setColor(Color.GREEN);
 
         startButtonLabel = new GLabel("Play");
+        startButtonLabel.setFont(new Font("SansSerif", Font.BOLD, 16));
         double textX = buttonX + BUTTON_WIDTH / 2.0 - startButtonLabel.getWidth() / 2.0;
         double textY = buttonY + BUTTON_HEIGHT / 2.0 - startButtonLabel.getAscent() / 2.0;
 
@@ -136,6 +155,8 @@ public class BreakoutExt extends GraphicsProgram {
         drawBricks();
         drawPaddle();
         drawBall();
+        drawHearts();
+        drawScore();
     }
 
     private void setSpeed() {
@@ -147,6 +168,9 @@ public class BreakoutExt extends GraphicsProgram {
         }
     }
 
+    /*
+     * ~~ Methods for drawing structures ~~
+     */
     // draws rows of bricks according to colors
     private void drawBricks() {
         int y = BRICK_Y_OFFSET;
@@ -177,6 +201,32 @@ public class BreakoutExt extends GraphicsProgram {
         add(paddle);
     }
 
+    private void drawBall() {
+        ball = new GOval(WIDTH / 2 - BALL_RADIUS, HEIGHT / 2 - BALL_RADIUS, BALL_RADIUS * 2, BALL_RADIUS * 2);
+        ball.setFilled(true);
+        add(ball);
+    }
+
+    private void drawScore() {
+        scoreLabel = new GLabel("Score: " + score);
+        scoreLabel.setColor(Color.BLUE);
+        scoreLabel.setFont(new Font("SansSerif", Font.BOLD, 24));
+
+        double x = WIDTH - scoreLabel.getWidth();
+        add(scoreLabel, x, STATS_Y_OFFSET + scoreLabel.getAscent());
+    }
+
+    private void drawHearts() {
+        for (int i = 0; i < lives; i++) {
+            double x = i * (HEART_WIDTH + BRICK_SEP);
+            GImage heartImg = new GImage(ASSET_PATH + "heart.png");
+            heartImg.setSize(HEART_WIDTH, HEART_HEIGHT);
+            heartImg.sendToFront();
+
+            add(heartImg, x, STATS_Y_OFFSET);
+        }
+    }
+
     /*
      *  ~~EVENT LISTENERS~~
      */
@@ -191,19 +241,13 @@ public class BreakoutExt extends GraphicsProgram {
 
     // moves the paddle according to mouse X location
     public void mouseMoved(MouseEvent e) {
-        if (paddle == null) return;
+        if (gameRunning == false || paddle == null) return;
 
         double paddleX = e.getX() - PADDLE_WIDTH / 2.0;
 
         if (paddleX >= 0 && paddleX + PADDLE_WIDTH <= WIDTH) {
             paddle.setLocation(paddleX, paddle.getY());
         }
-    }
-
-    private void drawBall() {
-        ball = new GOval(WIDTH / 2 - BALL_RADIUS, HEIGHT / 2 - BALL_RADIUS, BALL_RADIUS * 2, BALL_RADIUS * 2);
-        ball.setFilled(true);
-        add(ball);
     }
 
     private void moveBall() {
@@ -232,10 +276,12 @@ public class BreakoutExt extends GraphicsProgram {
         GObject obj = getBallCollider(leftX, rightX, topY, bottomY);
         if (obj == paddle) {
             handlePaddleCollision();
-        } else if (obj != null) {   // ball collided with a brick
-            //
-            // TODO add score
-            // TODO add random buffs and debuffs
+        } else if (obj instanceof GRect) {   // ball collided with a brick
+            bounceSfx.play();
+
+            // TODO add leaderboard
+            score += 10;
+            scoreLabel.setLabel("Score: " + score);
 
             remove(obj);
             brickNum--;
@@ -243,9 +289,12 @@ public class BreakoutExt extends GraphicsProgram {
         }
     }
 
+    // handles the paddle collision and adjusts ball speed
     private void handlePaddleCollision() {
-        // TODO finish algo
         vy = -Math.abs(vy);
+
+        double paddleCenterX = paddle.getX() - PADDLE_WIDTH / 2.0;
+        vx = (ball.getX() + BALL_RADIUS - paddleCenterX) / 32;
     }
 
     // checking all corners of the ball to see what it collided with
@@ -279,6 +328,10 @@ public class BreakoutExt extends GraphicsProgram {
     // player missed the ball
     private void handleMiss() {
         lives--;
+        GObject heart = getLastHeart();
+        remove(heart);
+        missSfx.play();
+
         remove(ball);
         drawBall();
     }
@@ -287,6 +340,7 @@ public class BreakoutExt extends GraphicsProgram {
     private void showScreenMessage(String text, Color color) {
         GLabel label = new GLabel(text);
         label.setColor(color);
+        label.setFont(new Font("SansSerif", Font.BOLD, 50));
 
         double x = (WIDTH - label.getWidth()) / 2;
         double y = (WIDTH - label.getAscent()) / 2;
@@ -308,5 +362,12 @@ public class BreakoutExt extends GraphicsProgram {
         }
 
         return Color.RED;
+    }
+
+    private GObject getLastHeart() {
+        double x = lives * (HEART_WIDTH + BRICK_SEP);
+        double y = STATS_Y_OFFSET;
+
+        return getElementAt(x, y);
     }
 }

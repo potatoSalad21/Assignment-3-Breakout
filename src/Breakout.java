@@ -79,6 +79,10 @@ public class Breakout extends GraphicsProgram {
         initGame();
         setSpeed();
 
+        startGameLoop();
+	}
+
+    private void startGameLoop() {
         // game loop
         while (lives > 0 && brickNum > 0) {
             moveBall();
@@ -93,7 +97,7 @@ public class Breakout extends GraphicsProgram {
         }
 
         remove(ball);
-	}
+    }
 
     private void initGame() {
         drawBricks();
@@ -233,7 +237,6 @@ public class Breakout extends GraphicsProgram {
 
         add(label, x, y);
         pause(5000);
-        remove(label);
     }
 
     // pick the brick color according to the row
