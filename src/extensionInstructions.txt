@@ -1,0 +1,2 @@
+1. assets folderis path unda iyos sheyvanili ASSET_PATH variable-shi kodshi
+2. score ufro meti dagrovdeba tu burts ufro dzlierad miajaxeb paddles :)

@@ -7,6 +7,11 @@
  * This file will eventually implement the game of Breakout.
  */
 
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.util.Scanner;
+
 import acm.graphics.GLabel;
 import acm.graphics.GObject;
 import acm.graphics.GOval;
@@ -63,9 +68,12 @@ public class BreakoutExt extends GraphicsProgram {
 /** Number of turns */
 	private static final int NTURNS = 3;
 
+    // SET THE APPROPRIATE PATH FOR ASSETS
     private static final String ASSET_PATH = "/home/dato/assignments/assignment3/Assignment3/assets/";
 
     private static final int DELAY = 5;
+    private static final int SCORE_MULTIPLIER = 30;
+    private static final int INFO_FONT_SIZE = 40;
 
     private static final int HEART_WIDTH = 30;
     private static final int HEART_HEIGHT = 30;
@@ -80,6 +88,9 @@ public class BreakoutExt extends GraphicsProgram {
     private AudioClip lossSfx = MediaTools.loadAudioClip(ASSET_PATH + "game-over.wav");
     private AudioClip missSfx = MediaTools.loadAudioClip(ASSET_PATH + "miss.wav");
 
+    private String playerName;
+    private GLabel warningLabel;
+    private GLabel statLabel = new GLabel("");
     private GRect startButton;
     private GLabel startButtonLabel;
     private Boolean gameRunning = false;
@@ -124,17 +135,67 @@ public class BreakoutExt extends GraphicsProgram {
 
         if (brickNum < 1) {
             winSfx.play();
-            showScreenMessage("You Win! :>", Color.GREEN);
+            showScreenMessage("You Win! :3", Color.GREEN, INFO_FONT_SIZE);
         } else {
             lossSfx.play();
-            showScreenMessage("YOU DIED.", Color.RED);
+            showScreenMessage("YOU DIED.", Color.RED, INFO_FONT_SIZE);
+            saveScore();
         }
 
         gameRunning = false;
         remove(ball);
     }
 
+    // draws the first 5 player scores in the save file (not sorted by scores)
+    private void drawLeaderBoard() {
+        try {
+            File saveFile = new File("saveFile.txt");
+            Scanner reader = new Scanner(saveFile);
+
+            int lineNum = 0;
+            String stats = "";
+            while (reader.hasNextLine() && lineNum < 5) {
+                String line = reader.nextLine();
+                stats += line + " ";
+                lineNum++;
+            }
+
+            statLabel.setLabel(stats);
+            statLabel.setFont(new Font("SansSerif", Font.BOLD, 10));
+            statLabel.setColor(Color.CYAN);
+            double x = (WIDTH - statLabel.getWidth()) / 2.0;
+            add(statLabel, x, STATS_Y_OFFSET + statLabel.getAscent());
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    // sort out player stats and draw start button
     private void handleGameMenu() {
+        drawWarningLabel();
+        drawLeaderBoard();
+        getUserName();
+        drawStartButton();
+    }
+
+    private void getUserName() {
+        Scanner input = new Scanner(System.in);
+        System.out.println("Enter your username: ");
+        playerName = input.nextLine();
+    }
+
+    private void drawWarningLabel() {
+        warningLabel = new GLabel("Enter your username in console.");
+        warningLabel.setColor(Color.RED);
+        warningLabel.setFont(new Font("Serif", Font.BOLD, 20));
+
+        double x = (WIDTH - warningLabel.getWidth()) / 2.0;
+        double y = (WIDTH - warningLabel.getAscent());
+        add(warningLabel, x, y);
+    }
+
+    private void drawStartButton() {
         double buttonX = (WIDTH - BUTTON_WIDTH) / 2.0;
         double buttonY = (HEIGHT - BUTTON_HEIGHT) / 2.0;
 
@@ -232,16 +293,19 @@ public class BreakoutExt extends GraphicsProgram {
      */
     // detect if the user clicked the start button
     public void mouseClicked(MouseEvent e) {
+        if (startButton == null) return;
         if (startButton.contains(e.getX(), e.getY())) {
             gameRunning = true;
             remove(startButton);
             remove(startButtonLabel);
+            remove(warningLabel);
+            remove(statLabel);
         }
     }
 
     // moves the paddle according to mouse X location
     public void mouseMoved(MouseEvent e) {
-        if (gameRunning == false || paddle == null) return;
+        if (!gameRunning) return;
 
         double paddleX = e.getX() - PADDLE_WIDTH / 2.0;
 
@@ -279,10 +343,8 @@ public class BreakoutExt extends GraphicsProgram {
         } else if (obj instanceof GRect) {   // ball collided with a brick
             bounceSfx.play();
 
-            // TODO add leaderboard
             score += 10;
             scoreLabel.setLabel("Score: " + score);
-
             remove(obj);
             brickNum--;
             vy *= -1;
@@ -295,6 +357,8 @@ public class BreakoutExt extends GraphicsProgram {
 
         double paddleCenterX = paddle.getX() - PADDLE_WIDTH / 2.0;
         vx = (ball.getX() + BALL_RADIUS - paddleCenterX) / 32;
+        score += vx * SCORE_MULTIPLIER;
+        scoreLabel.setLabel("Score: " + score);
     }
 
     // checking all corners of the ball to see what it collided with
@@ -337,10 +401,10 @@ public class BreakoutExt extends GraphicsProgram {
     }
 
     // general method for displaying messages in center
-    private void showScreenMessage(String text, Color color) {
+    private void showScreenMessage(String text, Color color, int fontSz) {
         GLabel label = new GLabel(text);
         label.setColor(color);
-        label.setFont(new Font("SansSerif", Font.BOLD, 50));
+        label.setFont(new Font("SansSerif", Font.BOLD, fontSz));
 
         double x = (WIDTH - label.getWidth()) / 2;
         double y = (WIDTH - label.getAscent()) / 2;
@@ -364,10 +428,25 @@ public class BreakoutExt extends GraphicsProgram {
         return Color.RED;
     }
 
+    // get the current heart of the player
     private GObject getLastHeart() {
         double x = lives * (HEART_WIDTH + BRICK_SEP);
         double y = STATS_Y_OFFSET;
 
         return getElementAt(x, y);
+    }
+
+    // save user score in a text file after the match
+    private void saveScore() {
+        try {
+            File newFile = new File("saveFile.txt");
+            FileWriter saveFile = new FileWriter("saveFile.txt", true);
+            saveFile.append(playerName + ": " + score + "\n");
+
+            saveFile.flush();
+            saveFile.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 }
