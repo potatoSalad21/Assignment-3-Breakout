@@ -1,12 +1,3 @@
-/*
- * File: Breakout.java
- * -------------------
- * Name:
- * Section Leader:
- *
- * This file will eventually implement the game of Breakout.
- */
-
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
